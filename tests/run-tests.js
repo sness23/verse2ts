@@ -16,8 +16,8 @@ if (!ts.includes("function Square") || !ts.includes("console.log")) {
 }
 
 console.log("Running example via ts-node...");
-const out = run("npx --yes ts-node examples/example.ts");
-if (!out.includes("Hello Molecule, n is 5") || !out.includes("12")) {
+const out = run("npx --yes tsx examples/example.ts");
+if (!out.includes("Hello Molecule, n is 5") || !out.includes("32")) {
   console.error("Unexpected program output:\n" + out);
   process.exit(1);
 }

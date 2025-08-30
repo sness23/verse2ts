@@ -1,4 +1,3 @@
-
 #!/usr/bin/env node
 // Minimal Verse→TS transpiler + optional runner for a tiny subset.
 // See README for the supported features.
@@ -13,7 +12,20 @@ if (process.argv.length < 3) {
 
 const srcPath = process.argv[2];
 const shouldRun = process.argv.includes("--run");
+
+// Check if input file exists and is readable
+if (!fs.existsSync(srcPath)) {
+  console.error(`Error: File '${srcPath}' not found`);
+  process.exit(1);
+}
+
 const src = fs.readFileSync(srcPath, "utf8");
+
+// Validate input size to prevent memory issues
+if (src.length > 1000000) { // 1MB limit
+  console.error("Error: Input file too large (>1MB)");
+  process.exit(1);
+}
 
 function tsType(t) {
   const m = (t || "").trim().toLowerCase();
@@ -23,10 +35,11 @@ function tsType(t) {
   return "any";
 }
 
-// crude interpolation: "hi {x} and {y}" -> `hi ${x} and ${y}`
+// Safe interpolation: "hi {x} and {y}" -> `hi ${x} and ${y}`
 function interpolateStrings(s) {
-  return s.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (m, inside) => {
-    if (!inside.includes("{")) return m; // leave normal strings alone
+  // Safer regex that avoids catastrophic backtracking
+  return s.replace(/"([^"]*)"/g, (match, inside) => {
+    if (!inside.includes("{")) return match; // leave normal strings alone
     const templ = inside.replace(/\{([A-Za-z_]\w*)\}/g, "${$1}");
     // escape backticks if present
     return "`" + templ.replace(/`/g, "\\`") + "`";
@@ -83,22 +96,32 @@ for (let raw of lines) {
 
 // write TS and (optionally) run it
 const outTs = srcPath.replace(/\.verse$/i, "") + ".ts";
-fs.writeFileSync(outTs, out, "utf8");
-console.log(`Wrote ${outTs}`);
+try {
+  fs.writeFileSync(outTs, out, "utf8");
+  console.log(`Wrote ${outTs}`);
+} catch (error) {
+  console.error(`Error writing output file: ${error.message}`);
+  process.exit(1);
+}
 
 if (shouldRun) {
-  // Ensure ts-node is available
-  let hasTsNode = true;
   try {
-    execSync("npx --yes ts-node -v", { stdio: "ignore" });
-  } catch {
-    hasTsNode = false;
+    // Ensure tsx is available
+    let hasTsx = true;
+    try {
+      execSync("npx --yes tsx --version", { stdio: "ignore", timeout: 10000 });
+    } catch {
+      hasTsx = false;
+    }
+    if (!hasTsx) {
+      console.log("Installing dev deps: typescript and tsx...");
+      execSync("npm init -y", { stdio: "inherit", timeout: 30000 });
+      execSync("npm i -D typescript tsx @types/node", { stdio: "inherit", timeout: 60000 });
+    }
+    console.log("Running with tsx...");
+    execSync(`npx tsx "${outTs}"`, { stdio: "inherit", timeout: 30000 });
+  } catch (error) {
+    console.error(`Error running TypeScript: ${error.message}`);
+    process.exit(1);
   }
-  if (!hasTsNode) {
-    console.error("Installing dev deps: typescript and ts-node...");
-    execSync("npm init -y", { stdio: "inherit" });
-    execSync("npm i -D typescript ts-node @types/node", { stdio: "inherit" });
-  }
-  console.log("Running with ts-node...");
-  execSync(`npx ts-node "${outTs}"`, { stdio: "inherit" });
 }
