@@ -1,0 +1,17 @@
+{
+  "name": "toy-verse2ts",
+  "version": "0.1.0",
+  "private": false,
+  "license": "MIT",
+  "type": "module",
+  "bin": {},
+  "scripts": {
+    "build": "tsc --noEmit examples/example.ts || true",
+    "test": "node tests/run-tests.js"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0",
+    "@types/node": "^20.11.30"
+  }
+}
